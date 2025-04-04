@@ -17,64 +17,88 @@ var binFiles embed.FS
 
 // GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
 func GetDD() (ddCmd string, tempFile string, err error) {
-	// 优先尝试 sudo dd 是否可用
-	if path, err := exec.LookPath("dd"); err == nil {
+	var errors []string
+	// 1. 尝试系统自带 dd
+	path, lookErr := exec.LookPath("dd")
+	if lookErr == nil {
+		// 测试 sudo dd
 		testCmd := exec.Command("sudo", path, "--help")
-		if err := testCmd.Run(); err == nil {
+		if runErr := testCmd.Run(); runErr == nil {
 			return "sudo dd", "", nil
+		} else {
+			errors = append(errors, fmt.Sprintf("sudo dd 测试失败: %v", runErr))
 		}
-		// 如果 sudo dd 不可用，则尝试直接使用 dd
+		// 测试 dd 直接运行
 		testCmd = exec.Command(path, "--help")
-		if err := testCmd.Run(); err == nil {
+		if runErr := testCmd.Run(); runErr == nil {
 			return "dd", "", nil
+		} else {
+			errors = append(errors, fmt.Sprintf("dd 直接运行失败: %v", runErr))
 		}
+	} else {
+		errors = append(errors, fmt.Sprintf("无法找到 dd: %v", lookErr))
 	}
-	// 创建临时目录
-	tempDir, err := os.MkdirTemp("", "ddwrapper")
-	if err != nil {
-		return "", "", fmt.Errorf("创建临时目录失败: %v", err)
+	// 2. 创建临时目录
+	tempDir, tempErr := os.MkdirTemp("", "ddwrapper")
+	if tempErr != nil {
+		return "", "", fmt.Errorf("创建临时目录失败: %v", tempErr)
 	}
-	// 尝试使用 glibc 版本
+	// 3. 尝试使用 glibc 版本 coreutils
 	binName := "coreutils-linux-amd64"
 	binPath := filepath.Join("bin", binName)
-	fileContent, err := binFiles.ReadFile(binPath)
-	if err == nil {
+	fileContent, readErr := binFiles.ReadFile(binPath)
+	if readErr == nil {
 		tempFile = filepath.Join(tempDir, binName)
-		if err := os.WriteFile(tempFile, fileContent, 0755); err == nil {
-			// 先尝试 sudo 运行
+		writeErr := os.WriteFile(tempFile, fileContent, 0755)
+		if writeErr == nil {
+			// 测试 sudo 运行
 			testCmd := exec.Command("sudo", tempFile, "--version")
-			if err := testCmd.Run(); err == nil {
+			if runErr := testCmd.Run(); runErr == nil {
 				return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
+			} else {
+				errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
 			}
-			// 如果 sudo 运行失败，尝试直接运行
+
+			// 测试直接运行
 			testCmd = exec.Command(tempFile, "--version")
-			if err := testCmd.Run(); err == nil {
+			if runErr := testCmd.Run(); runErr == nil {
 				return fmt.Sprintf("%s dd", tempFile), tempFile, nil
+			} else {
+				errors = append(errors, fmt.Sprintf("%s 运行失败: %v", tempFile, runErr))
 			}
+		} else {
+			errors = append(errors, fmt.Sprintf("写入临时文件失败 (%s): %v", tempFile, writeErr))
 		}
+	} else {
+		errors = append(errors, fmt.Sprintf("读取嵌入的 coreutils glibc 版本失败: %v", readErr))
 	}
-	// 尝试使用 musl 版本
+	// 4. 尝试使用 musl 版本 coreutils
 	binName = "coreutils-linux-musl-amd64"
 	binPath = filepath.Join("bin", binName)
-	fileContent, err = binFiles.ReadFile(binPath)
-	if err != nil {
-		return "", "", fmt.Errorf("读取嵌入的 coreutils 二进制文件失败: %v", err)
+	fileContent, readErr = binFiles.ReadFile(binPath)
+	if readErr != nil {
+		return "", "", fmt.Errorf("读取嵌入的 coreutils musl 版本失败: %v", readErr)
 	}
 	tempFile = filepath.Join(tempDir, binName)
-	if err := os.WriteFile(tempFile, fileContent, 0755); err != nil {
-		return "", "", fmt.Errorf("写入临时文件失败: %v", err)
+	if writeErr := os.WriteFile(tempFile, fileContent, 0755); writeErr != nil {
+		return "", "", fmt.Errorf("写入临时文件失败 (%s): %v", tempFile, writeErr)
 	}
-	// 先尝试 sudo 运行
-	testCmd := exec.Command("sudo", tempFile, "--version")
-	if err := testCmd.Run(); err == nil {
+	// 测试 sudo 运行
+	testCmd = exec.Command("sudo", tempFile, "--version")
+	if runErr := testCmd.Run(); runErr == nil {
 		return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
+	} else {
+		errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
 	}
-	// 如果 sudo 运行失败，尝试直接运行
+	// 测试直接运行
 	testCmd = exec.Command(tempFile, "--version")
-	if err := testCmd.Run(); err == nil {
+	if runErr := testCmd.Run(); runErr == nil {
 		return fmt.Sprintf("%s dd", tempFile), tempFile, nil
+	} else {
+		errors = append(errors, fmt.Sprintf("%s 运行失败: %v", tempFile, runErr))
 	}
-	return "", "", fmt.Errorf("无法找到可用的 dd 命令")
+	// 5. 返回所有错误信息
+	return "", "", fmt.Errorf("无法找到可用的 dd 命令:\n%s", strings.Join(errors, "\n"))
 }
 
 // ExecuteDD 执行 dd 命令
