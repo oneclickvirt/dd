@@ -1,7 +1,7 @@
 //go:build darwin && amd64
 // +build darwin,amd64
 
-package main
+package dd
 
 import (
 	"embed"

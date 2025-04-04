@@ -1,7 +1,7 @@
 //go:build linux && arm64
 // +build linux,arm64
 
-package main
+package dd
 
 import (
 	"embed"
