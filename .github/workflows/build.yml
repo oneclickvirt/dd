@@ -1,335 +1,261 @@
-# name: 构建静态 Coreutils 二进制文件
+name: Build dd Static Binaries
 
-# on:
-#   workflow_dispatch:
-
-# jobs:
-#   prepare:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: 检出代码库
-#         uses: actions/checkout@v4
-        
-#       - name: 创建 bin 目录
-#         run: mkdir -p bin
-        
-#       - name: 上传 bin 目录
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: bin-directory
-#           path: bin/
-
-#   build:
-#     needs: prepare
-#     strategy:
-#       matrix:
-#         include:
-#           # Linux 构建 - 主要架构
-#           - os: ubuntu-latest
-#             target: linux-amd64
-#             rust_target: x86_64-unknown-linux-musl
-#           - os: ubuntu-latest
-#             target: linux-386
-#             rust_target: i686-unknown-linux-musl
-#           - os: ubuntu-latest
-#             target: linux-arm64
-#             rust_target: aarch64-unknown-linux-musl
-#           - os: ubuntu-latest
-#             target: linux-armv7
-#             rust_target: armv7-unknown-linux-musleabihf
-            
-#           # macOS 构建
-#           - os: macos-latest
-#             target: darwin-amd64
-#             rust_target: x86_64-apple-darwin
-#           - os: macos-latest
-#             target: darwin-arm64
-#             rust_target: aarch64-apple-darwin
-            
-#           # Windows 构建
-#           - os: windows-latest
-#             target: windows-amd64
-#             rust_target: x86_64-pc-windows-gnu
-#             suffix: .exe
-#           - os: windows-latest
-#             target: windows-386
-#             rust_target: i686-pc-windows-gnu
-#             suffix: .exe
-#       fail-fast: false  # 确保即使某个任务失败，其他任务仍然继续
-
-#     runs-on: ${{ matrix.os }}
-#     steps:
-#       - name: 检出代码库
-#         uses: actions/checkout@v4
-
-#       - name: 下载 bin 目录
-#         uses: actions/download-artifact@v4
-#         with:
-#           name: bin-directory
-#           path: bin/
-
-#       - name: 设置 Rust 环境
-#         uses: actions-rs/toolchain@v1
-#         with:
-#           profile: minimal
-#           toolchain: stable
-#           target: ${{ matrix.rust_target }}
-#           override: true
-
-#       - name: 安装交叉编译依赖 (Linux)
-#         if: runner.os == 'Linux'
-#         run: |
-#           sudo apt-get update
-#           sudo apt-get install -y build-essential musl-tools
-          
-#           # 为特定目标架构安装交叉编译工具
-#           if [[ "${{ matrix.target }}" == "linux-386" ]]; then
-#             sudo apt-get install -y gcc-multilib
-#           elif [[ "${{ matrix.target }}" == "linux-arm64" ]]; then
-#             sudo apt-get install -y gcc-aarch64-linux-gnu
-#           elif [[ "${{ matrix.target }}" == "linux-armv7" ]]; then
-#             sudo apt-get install -y gcc-arm-linux-gnueabihf
-#           fi
-
-#       - name: 获取 coreutils 版本号和源码
-#         run: |
-#           LATEST_RELEASE=$(curl -s https://api.github.com/repos/uutils/coreutils/releases/latest)
-#           VERSION=$(echo "$LATEST_RELEASE" | grep -Po '"tag_name": "\K.*?(?=")' | sed 's/^v//')
-#           echo "VERSION=$VERSION" >> $GITHUB_ENV
-#           echo "版本号: $VERSION"
-          
-#           # 下载指定版本的源码
-#           curl -L -o coreutils.tar.gz https://github.com/uutils/coreutils/archive/refs/tags/${VERSION}.tar.gz
-#           tar -xzvf coreutils.tar.gz
-#           mv coreutils-${VERSION} coreutils
-#         shell: bash
-
-#       - name: 构建静态二进制文件 (Linux)
-#         if: startsWith(matrix.target, 'linux-')
-#         run: |
-#           cd coreutils
-          
-#           # 使用 MUSL 进行静态链接构建，明确指定需要的特性，排除有问题的特性
-#           RUSTFLAGS='-C target-feature=+crt-static -C link-arg=-s' cargo build \
-#             --target ${{ matrix.rust_target }} \
-#             --release \
-#             --features "unix" \
-#             --no-default-features
-          
-#           # 拷贝二进制文件并重命名
-#           cp target/${{ matrix.rust_target }}/release/coreutils ../bin/coreutils-${{ matrix.target }}${{ matrix.suffix }}
-          
-#           # 验证是否为静态二进制
-#           if [[ "${{ runner.os }}" == "Linux" ]]; then
-#             echo "验证静态链接:"
-#             ldd ../bin/coreutils-${{ matrix.target }} || echo "完全静态链接 ✓"
-#             file ../bin/coreutils-${{ matrix.target }}
-#           fi
-#         shell: bash
-#         continue-on-error: true
-
-#       - name: 构建二进制文件 (macOS)
-#         if: startsWith(matrix.target, 'darwin-')
-#         run: |
-#           cd coreutils
-          
-#           # macOS 构建，尽可能静态链接
-#           cargo build \
-#             --target ${{ matrix.rust_target }} \
-#             --release \
-#             --features "unix" \
-#             --no-default-features
-          
-#           # 拷贝二进制文件并重命名
-#           cp target/${{ matrix.rust_target }}/release/coreutils ../bin/coreutils-${{ matrix.target }}
-          
-#           # 显示依赖信息
-#           echo "二进制文件信息:"
-#           file ../bin/coreutils-${{ matrix.target }}
-#           otool -L ../bin/coreutils-${{ matrix.target }} || true
-#         shell: bash
-#         continue-on-error: true
-
-#       - name: 构建二进制文件 (Windows)
-#         if: startsWith(matrix.target, 'windows-')
-#         run: |
-#           cd coreutils
-          
-#           # Windows 构建
-#           cargo build \
-#             --target ${{ matrix.rust_target }} \
-#             --release \
-#             --features "windows" \
-#             --no-default-features
-          
-#           # 拷贝二进制文件并重命名
-#           cp target/${{ matrix.rust_target }}/release/coreutils.exe ../bin/coreutils-${{ matrix.target }}.exe
-#         shell: bash
-#         continue-on-error: true
-
-#       - name: 上传单个二进制文件
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: coreutils-${{ matrix.target }}
-#           path: bin/coreutils-${{ matrix.target }}${{ matrix.suffix }}
-#         continue-on-error: true
-
-#   collect:
-#     needs: build
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: 检出代码库
-#         uses: actions/checkout@v4
-        
-#       - name: 下载所有构建产物
-#         uses: actions/download-artifact@v4
-#         with:
-#           path: artifacts/
-          
-#       - name: 整理二进制文件
-#         run: |
-#           mkdir -p bin/
-          
-#           # 从所有单独的构建工件中复制文件到bin目录
-#           find artifacts/ -type f -not -path "*/bin-directory/*" -exec cp {} bin/ \;
-          
-#           # 列出所有收集到的二进制文件
-#           echo "成功构建的二进制文件:"
-#           ls -la bin/
-          
-#           # 给Linux/macOS二进制文件添加执行权限
-#           find bin/ -type f -not -name "*.exe" -exec chmod +x {} \;
-          
-#       - name: 上传整合后的 bin 目录
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: coreutils-binaries
-#           path: bin/
-          
-#       - name: 提交二进制文件到仓库
-#         run: |
-#           git config --global user.name "GitHub Actions"
-#           git config --global user.email "actions@github.com"
-          
-#           # 尝试获取版本号
-#           VERSION=$GITHUB_ENV
-#           if [ -z "$VERSION" ]; then
-#             VERSION=$(cd artifacts/ && find . -name "coreutils-linux-amd64" -type f -exec {} --version \; 2>/dev/null | head -n 1 | awk '{print $4}') || VERSION="未知版本"
-#           fi
-          
-#           git add bin/
-#           git commit -m "fix: 更新 Coreutils 静态二进制文件 [$VERSION] [skip ci]" || echo "没有更改需要提交"
-#           git push
-#         continue-on-error: true
-
-name: Build and Package Coreutils
 on:
   workflow_dispatch:
+
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          # Linux builds - 主要架构
+          - os: ubuntu-latest
+            target: linux-amd64
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            target: linux-386
+            goos: linux
+            goarch: 386
+          - os: ubuntu-latest
+            target: linux-arm64
+            goos: linux
+            goarch: arm64
+          - os: ubuntu-latest
+            target: linux-armv7
+            goos: linux
+            goarch: arm
+            goarm: 7
+            
+          # Linux builds - 特殊架构
+          - os: ubuntu-latest
+            target: linux-riscv64
+            goos: linux
+            goarch: riscv64
+          - os: ubuntu-latest
+            target: linux-mips64
+            goos: linux
+            goarch: mips64
+          - os: ubuntu-latest
+            target: linux-mips64le
+            goos: linux
+            goarch: mips64le
+          - os: ubuntu-latest
+            target: linux-mips
+            goos: linux
+            goarch: mips
+          - os: ubuntu-latest
+            target: linux-mipsle
+            goos: linux
+            goarch: mipsle
+          - os: ubuntu-latest
+            target: linux-ppc64
+            goos: linux
+            goarch: ppc64
+          - os: ubuntu-latest
+            target: linux-ppc64le
+            goos: linux
+            goarch: ppc64le
+            
+          # macOS builds
+          - os: macos-latest
+            target: darwin-amd64
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            target: darwin-arm64
+            goos: darwin
+            goarch: arm64
+      fail-fast: false  # 确保即使某个任务失败，其他任务仍然继续
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup coreutils build environment (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake libtool gettext texinfo
+          
+          # 安装交叉编译工具链
+          if [[ "${{ matrix.target }}" != "linux-amd64" ]]; then
+            echo "Installing cross-compilation toolchains for ${{ matrix.target }}"
+            
+            if [[ "${{ matrix.target }}" == "linux-386" ]]; then
+              sudo apt-get install -y gcc-multilib
+            elif [[ "${{ matrix.target }}" == "linux-arm64" ]]; then
+              sudo apt-get install -y gcc-aarch64-linux-gnu
+            elif [[ "${{ matrix.target }}" == "linux-armv7" ]]; then
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+            elif [[ "${{ matrix.target }}" == "linux-riscv64" ]]; then
+              sudo apt-get install -y gcc-riscv64-linux-gnu
+            elif [[ "${{ matrix.target }}" == "linux-mips64" ]]; then
+              sudo apt-get install -y gcc-mips64-linux-gnuabi64
+            elif [[ "${{ matrix.target }}" == "linux-mips64le" ]]; then
+              sudo apt-get install -y gcc-mips64el-linux-gnuabi64
+            elif [[ "${{ matrix.target }}" == "linux-mips" ]]; then
+              sudo apt-get install -y gcc-mips-linux-gnu
+            elif [[ "${{ matrix.target }}" == "linux-mipsle" ]]; then
+              sudo apt-get install -y gcc-mipsel-linux-gnu
+            elif [[ "${{ matrix.target }}" == "linux-ppc64" ]]; then
+              sudo apt-get install -y gcc-powerpc64-linux-gnu
+            elif [[ "${{ matrix.target }}" == "linux-ppc64le" ]]; then
+              sudo apt-get install -y gcc-powerpc64le-linux-gnu
+            fi
+          fi
+
+      - name: Setup coreutils build environment (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install autoconf automake libtool gettext texinfo
+          brew link gettext --force
+
+      - name: Download and extract coreutils source
+        run: |
+          curl -L -o coreutils.tar.gz https://ftp.gnu.org/gnu/coreutils/coreutils-8.32.tar.gz
+          tar -xzf coreutils.tar.gz
+          mv coreutils-8.32 coreutils-src
+        shell: bash
+
+      - name: Build dd static binary (Linux - amd64)
+        if: matrix.target == 'linux-amd64'
+        run: |
+          cd coreutils-src
+          export FORCE_UNSAFE_CONFIGURE=1
+          ./configure
+          sed -i "s/^LDFLAGS =/LDFLAGS = -static/g" ./Makefile
+          make src/dd
+          cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
+          src/dd --version | head -n1
+        continue-on-error: true
+
+      - name: Build dd static binary (Linux - 386)
+        if: matrix.target == 'linux-386'
+        run: |
+          cd coreutils-src
+          export FORCE_UNSAFE_CONFIGURE=1
+          CFLAGS="-m32" LDFLAGS="-m32 -static" ./configure
+          sed -i "s/^LDFLAGS = -m32/LDFLAGS = -m32 -static/g" ./Makefile
+          make src/dd
+          cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
+          src/dd --version | head -n1
+        continue-on-error: true
+
+      - name: Build dd static binary (Linux - ARM64)
+        if: matrix.target == 'linux-arm64'
+        run: |
+          cd coreutils-src
+          export FORCE_UNSAFE_CONFIGURE=1
+          CC=aarch64-linux-gnu-gcc ./configure --host=aarch64-linux-gnu
+          sed -i "s/^LDFLAGS =/LDFLAGS = -static/g" ./Makefile
+          make src/dd
+          cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
+          file src/dd
+        continue-on-error: true
+
+      - name: Build dd static binary (Linux - ARMv7)
+        if: matrix.target == 'linux-armv7'
+        run: |
+          cd coreutils-src
+          export FORCE_UNSAFE_CONFIGURE=1
+          CC=arm-linux-gnueabihf-gcc ./configure --host=arm-linux-gnueabihf
+          sed -i "s/^LDFLAGS =/LDFLAGS = -static/g" ./Makefile
+          make src/dd
+          cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}v${{ matrix.goarm }}
+          file src/dd
+        continue-on-error: true
+
+      - name: Build dd static binary (Linux - Special Architectures)
+        if: startsWith(matrix.target, 'linux-') && !contains(matrix.target, 'amd64') && !contains(matrix.target, '386') && !contains(matrix.target, 'arm')
+        run: |
+          cd coreutils-src
+          export FORCE_UNSAFE_CONFIGURE=1
+          
+          # 选择合适的交叉编译器和主机类型
+          if [[ "${{ matrix.target }}" == "linux-riscv64" ]]; then
+            CROSS_CC=riscv64-linux-gnu-gcc
+            HOST=riscv64-linux-gnu
+          elif [[ "${{ matrix.target }}" == "linux-mips64" ]]; then
+            CROSS_CC=mips64-linux-gnuabi64-gcc
+            HOST=mips64-linux-gnuabi64
+          elif [[ "${{ matrix.target }}" == "linux-mips64le" ]]; then
+            CROSS_CC=mips64el-linux-gnuabi64-gcc
+            HOST=mips64el-linux-gnuabi64
+          elif [[ "${{ matrix.target }}" == "linux-mips" ]]; then
+            CROSS_CC=mips-linux-gnu-gcc
+            HOST=mips-linux-gnu
+          elif [[ "${{ matrix.target }}" == "linux-mipsle" ]]; then
+            CROSS_CC=mipsel-linux-gnu-gcc
+            HOST=mipsel-linux-gnu
+          elif [[ "${{ matrix.target }}" == "linux-ppc64" ]]; then
+            CROSS_CC=powerpc64-linux-gnu-gcc
+            HOST=powerpc64-linux-gnu
+          elif [[ "${{ matrix.target }}" == "linux-ppc64le" ]]; then
+            CROSS_CC=powerpc64le-linux-gnu-gcc
+            HOST=powerpc64le-linux-gnu
+          fi
+          
+          CC=${CROSS_CC} ./configure --host=${HOST}
+          sed -i "s/^LDFLAGS =/LDFLAGS = -static/g" ./Makefile
+          make src/dd
+          cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
+          file src/dd
+        continue-on-error: true
+
+      - name: Build dd binary (macOS)
+        if: startsWith(matrix.target, 'darwin-')
+        run: |
+          cd coreutils-src
+          export FORCE_UNSAFE_CONFIGURE=1
+          ./configure
+          # macOS 不支持完全静态链接，使用标准编译
+          make src/dd
+          cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
+          src/dd --version | head -n1
+        continue-on-error: true
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dd-${{ matrix.target }}
+          path: bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v'}}${{ matrix.goarm }}
+        continue-on-error: true
+
+  collect:
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码库
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: 获取最新版本号
-        id: get_version
-        run: |
-          LATEST_RELEASE=$(curl -s https://api.github.com/repos/uutils/coreutils/releases/latest)
-          VERSION=$(echo "$LATEST_RELEASE" | grep -Po '"tag_name": "\K.*?(?=")' | sed 's/^v//')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "版本号: $VERSION"
-      
-      - name: 下载并处理所有Coreutils二进制文件
-        run: |
-          # 定义所有目标平台
-          declare -A TARGETS=(
-            ["x86_64-unknown-linux-gnu"]="linux-amd64"
-            ["aarch64-unknown-linux-gnu"]="linux-arm64"
-            ["i686-unknown-linux-gnu"]="linux-386"
-            ["x86_64-unknown-linux-musl"]="linux-musl-amd64"
-            ["aarch64-unknown-linux-musl"]="linux-musl-arm64"
-            ["i686-unknown-linux-musl"]="linux-musl-386"
-            ["x86_64-apple-darwin"]="darwin-amd64"
-            ["aarch64-apple-darwin"]="darwin-arm64"
-            ["x86_64-pc-windows-msvc"]="windows-amd64"
-            ["i686-pc-windows-msvc"]="windows-386"
-            ["arm-unknown-linux-gnueabihf"]="linux-armhf"
-          )
+        
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
           
-          # 处理每个目标
-          for TRIPLE in "${!TARGETS[@]}"; do
-            NAME="${TARGETS[$TRIPLE]}"
-            echo "处理平台: $TRIPLE -> $NAME"
-            
-            # 确定文件扩展名
-            if [[ "$TRIPLE" == *"windows"* ]]; then
-              EXT="zip"
-            else
-              EXT="tar.gz"
-            fi
-            
-            # 构建下载URL
-            URL="https://github.com/uutils/coreutils/releases/latest/download/coreutils-$VERSION-$TRIPLE.$EXT"
-            DOWNLOAD_FILE="coreutils-$VERSION-$TRIPLE.$EXT"
-            
-            echo "下载: $URL"
-            # 下载文件
-            curl -L -o "$DOWNLOAD_FILE" "$URL"
-            
-            # 根据文件类型解压
-            mkdir -p "temp_extract_$NAME"
-            
-            if [[ "$EXT" == "zip" ]]; then
-              unzip -q "$DOWNLOAD_FILE" -d "temp_extract_$NAME"
-              
-              # 查找并复制二进制文件
-              BINARY_PATH=$(find "temp_extract_$NAME" -type f -name "coreutils.exe" | head -n 1)
-              if [ -n "$BINARY_PATH" ]; then
-                cp "$BINARY_PATH" "bin/coreutils-$NAME.exe"
-                echo "✅ 成功提取: bin/coreutils-$NAME.exe"
-              else
-                echo "❌ 未找到 coreutils.exe，显示目录结构:"
-                find "temp_extract_$NAME" -type f
-              fi
-            else
-              tar -xf "$DOWNLOAD_FILE" -C "temp_extract_$NAME"
-              
-              # 查找并复制二进制文件
-              BINARY_PATH=$(find "temp_extract_$NAME" -type f -name "coreutils" | head -n 1)
-              if [ -n "$BINARY_PATH" ]; then
-                cp "$BINARY_PATH" "bin/coreutils-$NAME"
-                chmod +x "bin/coreutils-$NAME"
-                echo "✅ 成功提取: bin/coreutils-$NAME"
-              else
-                echo "❌ 未找到 coreutils 二进制文件，显示目录结构:"
-                find "temp_extract_$NAME" -type f
-              fi
-            fi
-            
-            # 清理临时文件
-            rm -f "$DOWNLOAD_FILE"
-            rm -rf "temp_extract_$NAME"
-          done
-      
-      - name: 配置Git
+      - name: Organize binaries
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-      
-      - name: 提交并推送二进制文件
-        run: |
-          # 列出提取的文件
-          echo "提取的二进制文件:"
+          # 从所有单独的构建工件中复制文件到bin目录
+          find artifacts/ -type f -not -path "*/bin-directory/*" -exec cp {} bin/ \;
+          
+          # 列出所有收集到的二进制文件
+          echo "Successfully built binaries:"
           ls -la bin/
           
-          # 提交更改
-          git add bin/
+      - name: Upload combined bin directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: dd-binaries
+          path: bin/
           
-          # 只有当有更改时才提交
-          if git diff --staged --quiet; then
-            echo "没有更改需要提交"
-          else
-            git commit -m "fix: 更新 Coreutils 二进制文件到版本 $VERSION [自动]"
-            git push
-          fi
+      - name: Commit binaries to repository
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          git add bin/
+          git commit -m "fix: Update dd static binaries [skip ci]" || echo "No changes to commit"
+          git push
+        continue-on-error: true
