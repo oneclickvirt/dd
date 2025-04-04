@@ -66,6 +66,26 @@ jobs:
             target: darwin-arm64
             goos: darwin
             goarch: arm64
+          
+          # FreeBSD builds
+          - os: ubuntu-latest
+            target: freebsd-amd64
+            goos: freebsd
+            goarch: amd64
+          - os: ubuntu-latest
+            target: freebsd-arm64
+            goos: freebsd
+            goarch: arm64
+
+          # OpenBSD builds
+          - os: ubuntu-latest
+            target: openbsd-amd64
+            goos: openbsd
+            goarch: amd64
+          - os: ubuntu-latest
+            target: openbsd-arm64
+            goos: openbsd
+            goarch: arm64
       fail-fast: false  # 确保即使某个任务失败，其他任务仍然继续
 
     runs-on: ${{ matrix.os }}
@@ -252,6 +272,49 @@ jobs:
           make
           # macOS 不支持完全静态链接，使用标准编译
           strip src/dd
+          cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
+          ls -lah src/dd
+          file src/dd
+        continue-on-error: true
+
+      - name: Build dd static binary (FreeBSD/OpenBSD)
+        if: startsWith(matrix.target, 'freebsd-') || startsWith(matrix.target, 'openbsd-')
+        run: |
+          cd coreutils-src
+          export FORCE_UNSAFE_CONFIGURE=1
+          
+          # 安装必要的BSD交叉编译工具
+          echo "Installing cross-compilation toolchains for ${{ matrix.target }}"
+          sudo apt-get update
+          sudo apt-get install -y clang lld llvm
+
+          # 配置编译环境变量
+          if [[ "${{ matrix.target }}" == *"-amd64" ]]; then
+            ARCH_FLAGS="-m64"
+          elif [[ "${{ matrix.target }}" == *"-arm64" ]]; then
+            ARCH_FLAGS="--target=aarch64-unknown-${MATRIX_GOOS}"
+          fi
+          
+          # 配置BSD特定编译选项
+          if [[ "${{ matrix.target }}" == "freebsd-"* ]]; then
+            OS_CFLAGS="-I/usr/include -I/usr/local/include -D__FreeBSD__"
+          elif [[ "${{ matrix.target }}" == "openbsd-"* ]]; then
+            OS_CFLAGS="-I/usr/include -I/usr/local/include -D__OpenBSD__"
+          fi
+          
+          # 使用clang进行交叉编译
+          CC="clang" \
+          CFLAGS="$ARCH_FLAGS $OS_CFLAGS -static" \
+          LDFLAGS="$ARCH_FLAGS -static" \
+          ./configure --host=${{ matrix.goarch }}-unknown-${{ matrix.goos }}
+          
+          # 确保完整运行 make 以生成 configmake.h
+          make
+          # 修改 Makefile 添加静态链接
+          sed -i "s/^LDFLAGS =/LDFLAGS = -static/g" ./Makefile
+          # 重新编译 dd
+          make src/dd
+          strip src/dd || true
           cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
           ls -lah src/dd
           file src/dd
