@@ -1,7 +1,6 @@
 package dd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
