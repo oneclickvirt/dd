@@ -4,11 +4,9 @@
 package dd
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -29,11 +27,11 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 			return "dd", "", nil
 		}
 	}
-	// 创建临时目录
-	tempDir, err := os.MkdirTemp("", "ddwrapper")
-	if err != nil {
-		return "", "", fmt.Errorf("创建临时目录失败: %v", err)
-	}
+	// // 创建临时目录
+	// tempDir, err := os.MkdirTemp("", "ddwrapper")
+	// if err != nil {
+	// 	return "", "", fmt.Errorf("创建临时目录失败: %v", err)
+	// }
 	// // 尝试使用 glibc 版本
 	// binName := "coreutils-linux-amd64"
 	// binPath := filepath.Join("bin", binName)

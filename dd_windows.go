@@ -4,11 +4,9 @@
 package dd
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 )
 
 // //go:embed bin/coreutils-windows-amd64.exe
@@ -16,7 +14,7 @@ import (
 
 // GetDD 获取与当前系统匹配的 dd 二进制文件并返回路径
 func GetDD() (string, string, error) {
-	binaryName := "coreutils-windows-amd64.exe"
+	// binaryName := "coreutils-windows-amd64.exe"
 	// 检查系统是否有原生 dd 命令
 	if _, err := exec.LookPath("dd"); err == nil {
 		return "dd", "", nil // 返回系统原生命令

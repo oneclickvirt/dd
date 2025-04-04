@@ -4,11 +4,9 @@
 package dd
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
