@@ -17,13 +17,17 @@ var binFiles embed.FS
 
 // GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
 func GetDD() (ddCmd string, tempFile string, err error) {
-	useSudo := !isRoot()
-	// 检查系统是否有原生 dd 命令
-	if _, err := exec.LookPath("dd"); err == nil {
-		if useSudo {
+	// 优先尝试 sudo dd 是否可用
+	if path, err := exec.LookPath("dd"); err == nil {
+		testCmd := exec.Command("sudo", path, "--help")
+		if err := testCmd.Run(); err == nil {
 			return "sudo dd", "", nil
 		}
-		return "dd", "", nil
+		// 如果 sudo dd 不可用，则尝试直接使用 dd
+		testCmd = exec.Command(path, "--help")
+		if err := testCmd.Run(); err == nil {
+			return "dd", "", nil
+		}
 	}
 	// 创建临时目录
 	tempDir, err := os.MkdirTemp("", "ddwrapper")
@@ -37,11 +41,14 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 	if err == nil {
 		tempFile = filepath.Join(tempDir, binName)
 		if err := os.WriteFile(tempFile, fileContent, 0755); err == nil {
-			cmd := exec.Command(tempFile, "--version")
-			if err := cmd.Run(); err == nil {
-				if useSudo {
-					return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
-				}
+			// 先尝试 sudo 运行
+			testCmd := exec.Command("sudo", tempFile, "--version")
+			if err := testCmd.Run(); err == nil {
+				return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
+			}
+			// 如果 sudo 运行失败，尝试直接运行
+			testCmd = exec.Command(tempFile, "--version")
+			if err := testCmd.Run(); err == nil {
 				return fmt.Sprintf("%s dd", tempFile), tempFile, nil
 			}
 		}
@@ -57,10 +64,17 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 	if err := os.WriteFile(tempFile, fileContent, 0755); err != nil {
 		return "", "", fmt.Errorf("写入临时文件失败: %v", err)
 	}
-	if useSudo {
+	// 先尝试 sudo 运行
+	testCmd := exec.Command("sudo", tempFile, "--version")
+	if err := testCmd.Run(); err == nil {
 		return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
 	}
-	return fmt.Sprintf("%s dd", tempFile), tempFile, nil
+	// 如果 sudo 运行失败，尝试直接运行
+	testCmd = exec.Command(tempFile, "--version")
+	if err := testCmd.Run(); err == nil {
+		return fmt.Sprintf("%s dd", tempFile), tempFile, nil
+	}
+	return "", "", fmt.Errorf("无法找到可用的 dd 命令")
 }
 
 // ExecuteDD 执行 dd 命令

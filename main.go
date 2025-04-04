@@ -6,11 +6,6 @@ import (
 	"path/filepath"
 )
 
-// isRoot 判断当前用户是否为 root
-func isRoot() bool {
-	return os.Geteuid() == 0
-}
-
 // CleanDD 删除临时提取出的 coreutils 文件
 func CleanDD(tempFile string) error {
 	if tempFile == "" {
