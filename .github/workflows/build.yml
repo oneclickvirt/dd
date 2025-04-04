@@ -99,8 +99,8 @@ jobs:
           echo "版本号: $VERSION"
           
           # 下载指定版本的源码
-          curl -L -o coreutils.tar.gz https://github.com/uutils/coreutils/archive/refs/tags/v${VERSION}.tar.gz
-          tar -xzf coreutils.tar.gz
+          curl -L -o coreutils.tar.gz https://github.com/uutils/coreutils/archive/refs/tags/${VERSION}.tar.gz
+          tar -xzvf coreutils.tar.gz
           mv coreutils-${VERSION} coreutils
         shell: bash
 
