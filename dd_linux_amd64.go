@@ -18,18 +18,22 @@ var binFiles embed.FS
 // GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
 func GetDD() (ddCmd string, tempFile string, err error) {
 	var errors []string
+	var testCmd *exec.Cmd
+
 	// 1. 尝试系统自带 dd
 	path, lookErr := exec.LookPath("dd")
 	if lookErr == nil {
 		// 测试 sudo dd
-		testCmd := exec.Command("sudo", path, "--help")
+		testCmd = exec.Command("sudo", path, "--help")
 		if runErr := testCmd.Run(); runErr == nil {
 			return "sudo dd", "", nil
 		} else {
 			errors = append(errors, fmt.Sprintf("sudo dd 测试失败: %v", runErr))
 		}
+
 		// 测试 dd 直接运行
-		testCmd = exec.Command(path, "--help")
+		testCmd.Args = []string{path, "--help"}
+		testCmd.Path = path
 		if runErr := testCmd.Run(); runErr == nil {
 			return "dd", "", nil
 		} else {
@@ -38,11 +42,13 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 	} else {
 		errors = append(errors, fmt.Sprintf("无法找到 dd: %v", lookErr))
 	}
+
 	// 2. 创建临时目录
 	tempDir, tempErr := os.MkdirTemp("", "ddwrapper")
 	if tempErr != nil {
 		return "", "", fmt.Errorf("创建临时目录失败: %v", tempErr)
 	}
+
 	// 3. 尝试使用 glibc 版本 coreutils
 	binName := "coreutils-linux-amd64"
 	binPath := filepath.Join("bin", binName)
@@ -52,7 +58,8 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 		writeErr := os.WriteFile(tempFile, fileContent, 0755)
 		if writeErr == nil {
 			// 测试 sudo 运行
-			testCmd := exec.Command("sudo", tempFile, "--version")
+			testCmd.Args = []string{"sudo", tempFile, "--version"}
+			testCmd.Path = "sudo"
 			if runErr := testCmd.Run(); runErr == nil {
 				return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
 			} else {
@@ -60,7 +67,8 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 			}
 
 			// 测试直接运行
-			testCmd = exec.Command(tempFile, "--version")
+			testCmd.Args = []string{tempFile, "--version"}
+			testCmd.Path = tempFile
 			if runErr := testCmd.Run(); runErr == nil {
 				return fmt.Sprintf("%s dd", tempFile), tempFile, nil
 			} else {
@@ -72,6 +80,7 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 	} else {
 		errors = append(errors, fmt.Sprintf("读取嵌入的 coreutils glibc 版本失败: %v", readErr))
 	}
+
 	// 4. 尝试使用 musl 版本 coreutils
 	binName = "coreutils-linux-musl-amd64"
 	binPath = filepath.Join("bin", binName)
@@ -83,20 +92,25 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 	if writeErr := os.WriteFile(tempFile, fileContent, 0755); writeErr != nil {
 		return "", "", fmt.Errorf("写入临时文件失败 (%s): %v", tempFile, writeErr)
 	}
+
 	// 测试 sudo 运行
-	testCmd = exec.Command("sudo", tempFile, "--version")
+	testCmd.Args = []string{"sudo", tempFile, "--version"}
+	testCmd.Path = "sudo"
 	if runErr := testCmd.Run(); runErr == nil {
 		return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
 	} else {
 		errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
 	}
+
 	// 测试直接运行
-	testCmd = exec.Command(tempFile, "--version")
+	testCmd.Args = []string{tempFile, "--version"}
+	testCmd.Path = tempFile
 	if runErr := testCmd.Run(); runErr == nil {
 		return fmt.Sprintf("%s dd", tempFile), tempFile, nil
 	} else {
 		errors = append(errors, fmt.Sprintf("%s 运行失败: %v", tempFile, runErr))
 	}
+
 	// 5. 返回所有错误信息
 	return "", "", fmt.Errorf("无法找到可用的 dd 命令:\n%s", strings.Join(errors, "\n"))
 }
