@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-//go:embed bin/dd-linux-386 bin/dd-linux-musl-386
+//go:embed bin/dd-linux-386
 var binFiles embed.FS
 
 // GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
