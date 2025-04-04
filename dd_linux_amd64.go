@@ -18,22 +18,19 @@ var binFiles embed.FS
 // GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
 func GetDD() (ddCmd string, tempFile string, err error) {
 	var errors []string
-	var testCmd *exec.Cmd
 
 	// 1. 尝试系统自带 dd
-	path, lookErr := exec.LookPath("dd")
-	if lookErr == nil {
-		// 测试 sudo dd
-		testCmd = exec.Command("sudo", path, "--help")
+	if path, lookErr := exec.LookPath("dd"); lookErr == nil {
+		// 确保 testCmd 被初始化
+		testCmd := exec.Command("sudo", path, "--help")
 		if runErr := testCmd.Run(); runErr == nil {
 			return "sudo dd", "", nil
 		} else {
 			errors = append(errors, fmt.Sprintf("sudo dd 测试失败: %v", runErr))
 		}
 
-		// 测试 dd 直接运行
-		testCmd.Args = []string{path, "--help"}
-		testCmd.Path = path
+		// 直接尝试 dd
+		testCmd = exec.Command(path, "--help")
 		if runErr := testCmd.Run(); runErr == nil {
 			return "dd", "", nil
 		} else {
@@ -57,18 +54,16 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 		tempFile = filepath.Join(tempDir, binName)
 		writeErr := os.WriteFile(tempFile, fileContent, 0755)
 		if writeErr == nil {
-			// 测试 sudo 运行
-			testCmd.Args = []string{"sudo", tempFile, "--version"}
-			testCmd.Path = "sudo"
+			// 确保 testCmd 被初始化
+			testCmd := exec.Command("sudo", tempFile, "--version")
 			if runErr := testCmd.Run(); runErr == nil {
 				return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
 			} else {
 				errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
 			}
 
-			// 测试直接运行
-			testCmd.Args = []string{tempFile, "--version"}
-			testCmd.Path = tempFile
+			// 直接尝试
+			testCmd = exec.Command(tempFile, "--version")
 			if runErr := testCmd.Run(); runErr == nil {
 				return fmt.Sprintf("%s dd", tempFile), tempFile, nil
 			} else {
@@ -93,18 +88,16 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 		return "", "", fmt.Errorf("写入临时文件失败 (%s): %v", tempFile, writeErr)
 	}
 
-	// 测试 sudo 运行
-	testCmd.Args = []string{"sudo", tempFile, "--version"}
-	testCmd.Path = "sudo"
+	// 确保 testCmd 被初始化
+	testCmd := exec.Command("sudo", tempFile, "--version")
 	if runErr := testCmd.Run(); runErr == nil {
 		return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
 	} else {
 		errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
 	}
 
-	// 测试直接运行
-	testCmd.Args = []string{tempFile, "--version"}
-	testCmd.Path = tempFile
+	// 直接尝试
+	testCmd = exec.Command(tempFile, "--version")
 	if runErr := testCmd.Run(); runErr == nil {
 		return fmt.Sprintf("%s dd", tempFile), tempFile, nil
 	} else {
