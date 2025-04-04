@@ -12,51 +12,66 @@ import (
 	"strings"
 )
 
-//go:embed bin/coreutils-darwin-amd64
+//go:embed bin/dd-darwin-amd64
 var binFiles embed.FS
 
-// GetDD 获取与当前系统匹配的 dd 命令（包含是否需要 sudo），并返回完整执行路径或命令
-func GetDD() (string, string, error) {
-	binaryName := "coreutils-darwin-amd64"
-	// 优先尝试 sudo dd 是否可用
-	if path, err := exec.LookPath("dd"); err == nil {
+// GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
+func GetDD() (ddCmd string, tempFile string, err error) {
+	var errors []string
+	// 1. 尝试系统自带 dd
+	if path, lookErr := exec.LookPath("dd"); lookErr == nil {
+		// 确保 testCmd 被初始化
 		testCmd := exec.Command("sudo", path, "--help")
-		if err := testCmd.Run(); err == nil {
+		if runErr := testCmd.Run(); runErr == nil {
 			return "sudo dd", "", nil
+		} else {
+			errors = append(errors, fmt.Sprintf("sudo dd 测试失败: %v", runErr))
 		}
-		// 如果 sudo dd 不可用，则尝试直接使用 dd
+		// 直接尝试 dd
 		testCmd = exec.Command(path, "--help")
-		if err := testCmd.Run(); err == nil {
+		if runErr := testCmd.Run(); runErr == nil {
 			return "dd", "", nil
+		} else {
+			errors = append(errors, fmt.Sprintf("dd 直接运行失败: %v", runErr))
 		}
+	} else {
+		errors = append(errors, fmt.Sprintf("无法找到 dd: %v", lookErr))
 	}
-	// 创建临时目录存放二进制文件
-	tempDir, err := os.MkdirTemp("", "ddwrapper")
-	if err != nil {
-		return "", "", fmt.Errorf("创建临时目录失败: %v", err)
+	// 2. 创建临时目录
+	tempDir, tempErr := os.MkdirTemp("", "ddwrapper")
+	if tempErr != nil {
+		return "", "", fmt.Errorf("创建临时目录失败: %v", tempErr)
 	}
-	// 读取嵌入的二进制文件
-	binPath := filepath.Join("bin", binaryName)
-	fileContent, err := binFiles.ReadFile(binPath)
-	if err != nil {
-		return "", "", fmt.Errorf("读取嵌入的 coreutils 二进制文件失败: %v", err)
+	// 3. 尝试使用 glibc 版本 coreutils
+	binName := "dd-darwin-amd64"
+	binPath := filepath.Join("bin", binName)
+	fileContent, readErr := binFiles.ReadFile(binPath)
+	if readErr == nil {
+		tempFile = filepath.Join(tempDir, binName)
+		writeErr := os.WriteFile(tempFile, fileContent, 0755)
+		if writeErr == nil {
+			// 确保 testCmd 被初始化
+			testCmd := exec.Command("sudo", tempFile, "--version")
+			if runErr := testCmd.Run(); runErr == nil {
+				return fmt.Sprintf("sudo %s", tempFile), tempFile, nil
+			} else {
+				errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
+			}
+			// 直接尝试
+			testCmd = exec.Command(tempFile, "--version")
+			if runErr := testCmd.Run(); runErr == nil {
+				return tempFile, tempFile, nil
+			} else {
+				errors = append(errors, fmt.Sprintf("%s 运行失败: %v", tempFile, runErr))
+			}
+		} else {
+			errors = append(errors, fmt.Sprintf("写入临时文件失败 (%s): %v", tempFile, writeErr))
+		}
+	} else {
+		errors = append(errors, fmt.Sprintf("读取嵌入的 coreutils glibc 版本失败: %v", readErr))
 	}
-	// 写入临时文件
-	tempFile := filepath.Join(tempDir, binaryName)
-	if err := os.WriteFile(tempFile, fileContent, 0755); err != nil {
-		return "", "", fmt.Errorf("写入临时文件失败: %v", err)
-	}
-	// 先尝试 sudo 运行嵌入的二进制文件
-	testCmd := exec.Command("sudo", tempFile, "dd", "--help")
-	if err := testCmd.Run(); err == nil {
-		return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
-	}
-	// 如果 sudo 运行失败，尝试直接运行
-	testCmd = exec.Command(tempFile, "dd", "--help")
-	if err := testCmd.Run(); err == nil {
-		return fmt.Sprintf("%s dd", tempFile), tempFile, nil
-	}
-	return "", "", fmt.Errorf("无法找到可用的 dd 命令")
+	// 返回所有错误信息
+	return "", "", fmt.Errorf("无法找到可用的 dd 命令:\n%s", strings.Join(errors, "\n"))
 }
 
 // ExecuteDD 执行拼好的 dd 命令字符串（包括 sudo、dd 等）

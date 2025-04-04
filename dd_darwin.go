@@ -10,12 +10,9 @@ import (
 	"strings"
 )
 
-// //go:embed bin/coreutils-darwin-arm64
-// var binFiles embed.FS
-
 // GetDD 获取与当前系统匹配的 dd 二进制文件并返回路径
 func GetDD() (string, string, error) {
-	binaryName := "coreutils-darwin-arm64"
+	binaryName := "dd-darwin-arm64"
 	// 优先尝试 sudo dd 是否可用
 	if path, err := exec.LookPath("dd"); err == nil {
 		testCmd := exec.Command("sudo", path, "--help")
@@ -33,27 +30,6 @@ func GetDD() (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("创建临时目录失败: %v", err)
 	}
-	// // 读取嵌入的二进制文件
-	// binPath := filepath.Join("bin", binaryName)
-	// fileContent, err := binFiles.ReadFile(binPath)
-	// if err != nil {
-	// 	return "", "", fmt.Errorf("读取嵌入的 coreutils 二进制文件失败: %v", err)
-	// }
-	// // 写入临时文件
-	// tempFile := filepath.Join(tempDir, binaryName)
-	// if err := os.WriteFile(tempFile, fileContent, 0755); err != nil {
-	// 	return "", "", fmt.Errorf("写入临时文件失败: %v", err)
-	// }
-	// // 先尝试 sudo 运行嵌入的二进制文件
-	// testCmd := exec.Command("sudo", tempFile, "dd", "--help")
-	// if err := testCmd.Run(); err == nil {
-	// 	return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
-	// }
-	// // 如果 sudo 运行失败，尝试直接运行
-	// testCmd = exec.Command(tempFile, "dd", "--help")
-	// if err := testCmd.Run(); err == nil {
-	// 	return fmt.Sprintf("%s dd", tempFile), tempFile, nil
-	// }
 	return "", "", fmt.Errorf("无法找到可用的 dd 命令")
 }
 

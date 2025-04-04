@@ -1,5 +1,5 @@
-//go:build linux && !(amd64 || arm64 || arm || 386)
-// +build linux,!amd64,!arm64,!arm,!386
+//go:build linux && !(amd64 || arm64 || arm || 386 || mips || mips64 || mips64le || mipsle || ppc64 || ppc64le || riscv64)
+// +build linux,!amd64,!arm64,!arm,!386,!mips,!mips64,!mips64le,!mipsle,!ppc64,!ppc64le,!riscv64
 
 package dd
 
@@ -9,9 +9,6 @@ import (
 	"os/exec"
 	"strings"
 )
-
-// //go:embed bin/coreutils-linux-amd64 bin/coreutils-linux-musl-amd64
-// var binFiles embed.FS
 
 // GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
 func GetDD() (ddCmd string, tempFile string, err error) {
@@ -27,51 +24,6 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 			return "dd", "", nil
 		}
 	}
-	// // 创建临时目录
-	// tempDir, err := os.MkdirTemp("", "ddwrapper")
-	// if err != nil {
-	// 	return "", "", fmt.Errorf("创建临时目录失败: %v", err)
-	// }
-	// // 尝试使用 glibc 版本
-	// binName := "coreutils-linux-amd64"
-	// binPath := filepath.Join("bin", binName)
-	// fileContent, err := binFiles.ReadFile(binPath)
-	// if err == nil {
-	// 	tempFile = filepath.Join(tempDir, binName)
-	// 	if err := os.WriteFile(tempFile, fileContent, 0755); err == nil {
-	// 		// 先尝试 sudo 运行
-	// 		testCmd := exec.Command("sudo", tempFile, "--version")
-	// 		if err := testCmd.Run(); err == nil {
-	// 			return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
-	// 		}
-	// 		// 如果 sudo 运行失败，尝试直接运行
-	// 		testCmd = exec.Command(tempFile, "--version")
-	// 		if err := testCmd.Run(); err == nil {
-	// 			return fmt.Sprintf("%s dd", tempFile), tempFile, nil
-	// 		}
-	// 	}
-	// }
-	// // 尝试使用 musl 版本
-	// binName = "coreutils-linux-musl-amd64"
-	// binPath = filepath.Join("bin", binName)
-	// fileContent, err = binFiles.ReadFile(binPath)
-	// if err != nil {
-	// 	return "", "", fmt.Errorf("读取嵌入的 coreutils 二进制文件失败: %v", err)
-	// }
-	// tempFile = filepath.Join(tempDir, binName)
-	// if err := os.WriteFile(tempFile, fileContent, 0755); err != nil {
-	// 	return "", "", fmt.Errorf("写入临时文件失败: %v", err)
-	// }
-	// // 先尝试 sudo 运行
-	// testCmd := exec.Command("sudo", tempFile, "--version")
-	// if err := testCmd.Run(); err == nil {
-	// 	return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
-	// }
-	// // 如果 sudo 运行失败，尝试直接运行
-	// testCmd = exec.Command(tempFile, "--version")
-	// if err := testCmd.Run(); err == nil {
-	// 	return fmt.Sprintf("%s dd", tempFile), tempFile, nil
-	// }
 	return "", "", fmt.Errorf("无法找到可用的 dd 命令")
 }
 

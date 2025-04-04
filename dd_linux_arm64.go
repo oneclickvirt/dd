@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-//go:embed bin/coreutils-linux-arm64 bin/coreutils-linux-musl-arm64
+//go:embed bin/dd-linux-arm64 bin/dd-linux-musl-arm64
 var binFiles embed.FS
 
 // GetDD 返回适用于当前系统的 dd 命令字符串（带不带 sudo）和临时文件路径（用于清理）
@@ -43,7 +43,7 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 		return "", "", fmt.Errorf("创建临时目录失败: %v", tempErr)
 	}
 	// 3. 尝试使用 glibc 版本 coreutils
-	binName := "coreutils-linux-arm64"
+	binName := "dd-linux-arm64"
 	binPath := filepath.Join("bin", binName)
 	fileContent, readErr := binFiles.ReadFile(binPath)
 	if readErr == nil {
@@ -53,14 +53,14 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 			// 确保 testCmd 被初始化
 			testCmd := exec.Command("sudo", tempFile, "--version")
 			if runErr := testCmd.Run(); runErr == nil {
-				return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
+				return fmt.Sprintf("sudo %s", tempFile), tempFile, nil
 			} else {
 				errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
 			}
 			// 直接尝试
 			testCmd = exec.Command(tempFile, "--version")
 			if runErr := testCmd.Run(); runErr == nil {
-				return fmt.Sprintf("%s dd", tempFile), tempFile, nil
+				return tempFile, tempFile, nil
 			} else {
 				errors = append(errors, fmt.Sprintf("%s 运行失败: %v", tempFile, runErr))
 			}
@@ -70,32 +70,7 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 	} else {
 		errors = append(errors, fmt.Sprintf("读取嵌入的 coreutils glibc 版本失败: %v", readErr))
 	}
-	// 4. 尝试使用 musl 版本 coreutils
-	binName = "coreutils-linux-musl-arm64"
-	binPath = filepath.Join("bin", binName)
-	fileContent, readErr = binFiles.ReadFile(binPath)
-	if readErr != nil {
-		return "", "", fmt.Errorf("读取嵌入的 coreutils musl 版本失败: %v", readErr)
-	}
-	tempFile = filepath.Join(tempDir, binName)
-	if writeErr := os.WriteFile(tempFile, fileContent, 0755); writeErr != nil {
-		return "", "", fmt.Errorf("写入临时文件失败 (%s): %v", tempFile, writeErr)
-	}
-	// 确保 testCmd 被初始化
-	testCmd := exec.Command("sudo", tempFile, "--version")
-	if runErr := testCmd.Run(); runErr == nil {
-		return fmt.Sprintf("sudo %s dd", tempFile), tempFile, nil
-	} else {
-		errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
-	}
-	// 直接尝试
-	testCmd = exec.Command(tempFile, "--version")
-	if runErr := testCmd.Run(); runErr == nil {
-		return fmt.Sprintf("%s dd", tempFile), tempFile, nil
-	} else {
-		errors = append(errors, fmt.Sprintf("%s 运行失败: %v", tempFile, runErr))
-	}
-	// 5. 返回所有错误信息
+	// 返回所有错误信息
 	return "", "", fmt.Errorf("无法找到可用的 dd 命令:\n%s", strings.Join(errors, "\n"))
 }
 

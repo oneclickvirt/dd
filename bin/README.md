@@ -1,5 +1,5 @@
 ## dd
 
-https://github.com/coreutils/coreutils
+原版：https://github.com/coreutils/coreutils
 
-https://github.com/uutils/coreutils
+Rust重构版本：https://github.com/uutils/coreutils
