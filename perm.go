@@ -1,7 +1,7 @@
 //go:build !windows
 // +build !windows
 
-package disk
+package dd
 
 import (
 	"os"
