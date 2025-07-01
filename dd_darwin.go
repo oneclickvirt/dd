@@ -15,9 +15,11 @@ func GetDD() (string, string, error) {
 	binaryName := "dd-darwin-arm64"
 	// 优先尝试 sudo dd 是否可用
 	if path, err := exec.LookPath("dd"); err == nil {
-		testCmd := exec.Command("sudo", path, "--help")
-		if err := testCmd.Run(); err == nil {
-			return "sudo dd", "", nil
+		if !hasRootPermission() {
+			testCmd := exec.Command("sudo", path, "--help")
+			if err := testCmd.Run(); err == nil {
+				return "sudo dd", "", nil
+			}
 		}
 		// 如果 sudo dd 不可用，则尝试直接使用 dd
 		testCmd = exec.Command(path, "--help")
