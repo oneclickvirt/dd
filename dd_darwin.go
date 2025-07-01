@@ -22,7 +22,7 @@ func GetDD() (string, string, error) {
 			}
 		}
 		// 如果 sudo dd 不可用，则尝试直接使用 dd
-		testCmd = exec.Command(path, "--help")
+		testCmd := exec.Command(path, "--help")
 		if err := testCmd.Run(); err == nil {
 			return "dd", "", nil
 		}

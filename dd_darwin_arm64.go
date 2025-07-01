@@ -30,7 +30,7 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 			}
 		}
 		// 直接尝试 dd
-		testCmd = exec.Command(path, "--help")
+		testCmd := exec.Command(path, "--help")
 		if runErr := testCmd.Run(); runErr == nil {
 			return "dd", "", nil
 		} else {
@@ -62,7 +62,7 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 				}
 			}
 			// 直接尝试
-			testCmd = exec.Command(tempFile, "--version")
+			testCmd := exec.Command(tempFile, "--version")
 			if runErr := testCmd.Run(); runErr == nil {
 				return tempFile, tempFile, nil
 			} else {
