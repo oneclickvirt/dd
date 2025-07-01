@@ -60,7 +60,7 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 				errors = append(errors, fmt.Sprintf("sudo %s 运行失败: %v", tempFile, runErr))
 			}
 			// 直接尝试
-			testCmd := exec.Command(tempFile, "--version")
+			testCmd = exec.Command(tempFile, "--version")
 			if runErr := testCmd.Run(); runErr == nil {
 				return tempFile, tempFile, nil
 			} else {
