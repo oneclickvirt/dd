@@ -20,7 +20,7 @@ func GetDD() (ddCmd string, tempFile string, err error) {
 	var errors []string
 	// 1. 尝试系统自带 dd
 	if path, lookErr := exec.LookPath("dd"); lookErr == nil {
-		if !hasRootPermission() {
+		if hasRootPermission() {
 			// 确保 testCmd 被初始化
 			testCmd := exec.Command("sudo", path, "--help")
 			if runErr := testCmd.Run(); runErr == nil {

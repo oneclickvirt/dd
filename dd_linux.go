@@ -14,7 +14,7 @@ import (
 func GetDD() (ddCmd string, tempFile string, err error) {
 	// 优先尝试 sudo dd 是否可用
 	if path, err := exec.LookPath("dd"); err == nil {
-		if !hasRootPermission() {
+		if hasRootPermission() {
 			testCmd := exec.Command("sudo", path, "--help")
 			if err := testCmd.Run(); err == nil {
 				return "sudo dd", "", nil
