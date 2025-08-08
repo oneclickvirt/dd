@@ -27,7 +27,7 @@ func GetDD() (string, string, error) {
 		return "", "", fmt.Errorf("创建临时目录失败: %v", err)
 	}
 	// 读取嵌入的二进制文件
-	binPath := filepath.Join("bin", binaryName)
+	binPath := fmt.Sprintf("bin/%s", binName)
 	fileContent, err := binFiles.ReadFile(binPath)
 	if err != nil {
 		return "", "", fmt.Errorf("读取嵌入的 coreutils 二进制文件失败: %v", err)
