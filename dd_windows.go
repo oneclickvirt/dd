@@ -9,7 +9,6 @@ import (
 	"os/exec"
 )
 
-
 // GetDD 获取与当前系统匹配的 dd 二进制文件并返回路径
 func GetDD() (string, string, error) {
 	// binaryName := "coreutils-windows-amd64.exe"
