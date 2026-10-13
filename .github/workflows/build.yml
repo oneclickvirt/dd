@@ -105,9 +105,9 @@ jobs:
     - name: Download and extract coreutils source
       run: |
         source "$RUNNER_TEMP/ci-network.sh"
-        curl -L -o coreutils.tar.gz https://ftp.gnu.org/gnu/coreutils/coreutils-9.4.tar.gz
+        curl -L -o coreutils.tar.gz https://ftp.gnu.org/gnu/coreutils/coreutils-9.12.tar.gz
         tar -xzf coreutils.tar.gz
-        mv coreutils-9.4 coreutils-src
+        mv coreutils-9.12 coreutils-src
       shell: bash
     - name: Build dd static binary (Linux - amd64)
       if: matrix.target == 'linux-amd64'
@@ -115,13 +115,14 @@ jobs:
         cd coreutils-src
         export FORCE_UNSAFE_CONFIGURE=1
         export CFLAGS="-O2 -march=x86-64 -mtune=generic"
-        ./configure --disable-native
+        ./configure
         # 确保完整运行 make 以生成 configmake.h
         make CFLAGS="$CFLAGS"
         # 修改 Makefile 添加静态链接
         sed -i "s/^LDFLAGS =/LDFLAGS = -static/g" ./Makefile
         # 重新编译 dd
-        make src/dd CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+        rm -f src/dd
+        make src/dd CFLAGS="$CFLAGS" LDFLAGS="-static"
         strip src/dd
         cp src/dd ../bin/dd-${{ matrix.goos }}-${{ matrix.goarch }}
         ls -lah src/dd
@@ -132,7 +133,7 @@ jobs:
         cd coreutils-src
         export FORCE_UNSAFE_CONFIGURE=1
         # 添加 TIME_T_32_BIT_OK=yes 来解决 time_t 问题
-        TIME_T_32_BIT_OK=yes CFLAGS="-m32" LDFLAGS="-m32" ./configure --disable-native
+        TIME_T_32_BIT_OK=yes CFLAGS="-m32" LDFLAGS="-m32" ./configure
         # 确保完整运行 make 以生成 configmake.h
         make
         # 修改 Makefile 添加静态链接
@@ -149,7 +150,7 @@ jobs:
       run: |
         cd coreutils-src
         export FORCE_UNSAFE_CONFIGURE=1
-        CC=aarch64-linux-gnu-gcc ./configure --host=aarch64-linux-gnu --disable-native
+        CC=aarch64-linux-gnu-gcc ./configure --host=aarch64-linux-gnu
         # 确保完整运行 make 以生成 configmake.h
         make
         # 修改 Makefile 添加静态链接
@@ -166,7 +167,7 @@ jobs:
       run: |
         cd coreutils-src
         export FORCE_UNSAFE_CONFIGURE=1
-        CC=arm-linux-gnueabihf-gcc ./configure --host=arm-linux-gnueabihf --disable-native
+        CC=arm-linux-gnueabihf-gcc ./configure --host=arm-linux-gnueabihf
         # 确保完整运行 make 以生成 configmake.h
         make
         # 修改 Makefile 添加静态链接
@@ -215,7 +216,7 @@ jobs:
           HOST=powerpc64le-linux-gnu
           STRIP=powerpc64le-linux-gnu-strip
         fi
-        CC=${CROSS_CC} ./configure --host=${HOST} --disable-native
+        CC=${CROSS_CC} ./configure --host=${HOST}
         # 确保完整运行 make 以生成 configmake.h
         make
         # 修改 Makefile 添加静态链接
@@ -231,10 +232,9 @@ jobs:
       if: startsWith(matrix.target, 'darwin-')
       run: |
         export CC="clang -arch ${{ matrix.goarch == 'amd64' && 'x86_64' || 'arm64' }}"
-        export CC="clang -arch ${{ matrix.goarch == 'amd64' && 'x86_64' || 'arm64' }}"
         cd coreutils-src
         export FORCE_UNSAFE_CONFIGURE=1
-        ./configure --disable-native
+        ./configure
         # 确保完整运行 make 以生成 configmake.h
         make
         # macOS 不支持完全静态链接，使用标准编译
@@ -271,7 +271,7 @@ jobs:
         CC="clang" \
         CFLAGS="$ARCH_FLAGS $OS_CFLAGS -static" \
         LDFLAGS="$ARCH_FLAGS -static" \
-        ./configure --host=${{ matrix.goarch }}-unknown-${{ matrix.goos }} --disable-native
+        ./configure --host=${{ matrix.goarch }}-unknown-${{ matrix.goos }}
 
         # 确保完整运行 make 以生成 configmake.h
         make
@@ -313,7 +313,7 @@ jobs:
           if grep -q INTERP binary-segments.txt; then echo "Binary retained a dynamic loader." >&2; exit 1; fi
         elif [[ "${{ matrix.goos }}" == darwin ]]; then
           arch="${{ matrix.goarch == 'amd64' && 'x86_64' || 'arm64' }}"
-          lipo -verify_arch "$arch" "$file"
+          lipo "$file" -verify_arch "$arch"
         fi
     - name: Upload binary artifact
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
