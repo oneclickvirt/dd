@@ -1,0 +1,10 @@
+{
+  "repository": "oneclickvirt/dd",
+  "skill_name": "oneclickvirt-dd",
+  "mcp": false,
+  "files": {
+    "agent/profile.json": "052bc8ea951d7f092601e8758d67ae9853e12da073b00bc6a0539e634fe15c05",
+    "skills/oneclickvirt-dd/SKILL.md": "a9cf29091ddcc9479177847f170d41074534da9b1ccc67b53ca4621390da6851",
+    "skills/oneclickvirt-dd/SKILL_ZH.md": "9db3b8fb6b1798cb448be095c7e65eb6cac312cfade8e249127fba75873ba685"
+  }
+}

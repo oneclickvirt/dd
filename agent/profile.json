@@ -1,0 +1,19 @@
+{
+  "repository": "oneclickvirt/dd",
+  "branch": "main",
+  "skill_name": "oneclickvirt-dd",
+  "purpose": "Use the Go library that embeds dd dependencies for controlled benchmark workloads.",
+  "notes": [
+    "Read exported APIs and embedded binary selection for the target OS/architecture. Keep the test path in disposable storage; never target a raw block device or production data."
+  ],
+  "guide": "https://www.spiritlhl.net/guide/agent_integrations.html",
+  "releases": false,
+  "mcp": false,
+  "source_files": [
+    "go.mod"
+  ],
+  "purpose_zh": "在受控测试中使用内嵌 dd 依赖的 Go 库。",
+  "notes_zh": [
+    "先核对导出 API 及目标系统和架构的嵌入产物选择。只使用可丢弃的测试文件，不指向裸块设备或生产数据。"
+  ]
+}
